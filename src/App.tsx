@@ -366,7 +366,14 @@ export default function App() {
         })
       });
 
-      const result = await response.json();
+      let result: any = {};
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        result = await response.json();
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Resposta inesperada do servidor (${response.status}): ${errorText.substring(0, 120)}`);
+      }
 
       if (!response.ok) {
         if (result.error === "SMTP_NOT_CONFIGURED") {
