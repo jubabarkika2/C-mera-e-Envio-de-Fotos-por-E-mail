@@ -149,65 +149,67 @@ export default function App() {
       return;
     }
 
-    try {
-      const constraints: MediaStreamConstraints = {
+    // Try multiple tiers of constraints for absolute maximum compatibility on cellphones
+    const constraintTiers = [
+      // Tier 1: Ideal request with facing mode and preferred resolution
+      {
         video: {
-          facingMode: currentFacingMode,
+          facingMode: { ideal: currentFacingMode },
           width: { ideal: 1280 },
           height: { ideal: 720 }
         },
         audio: false
-      };
-      
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      
-      if (requestId !== activeCameraRequestIdRef.current) {
-        // A newer request has started or camera was stopped. Stop this stream immediately to avoid locking the camera.
-        mediaStream.getTracks().forEach(track => track.stop());
-        return;
+      },
+      // Tier 2: Basic request with facing mode only
+      {
+        video: {
+          facingMode: { ideal: currentFacingMode }
+        },
+        audio: false
+      },
+      // Tier 3: Simplest request, let browser decide camera (usually front or default)
+      {
+        video: true,
+        audio: false
       }
+    ];
 
+    let mediaStream: MediaStream | null = null;
+
+    for (let i = 0; i < constraintTiers.length; i++) {
+      if (requestId !== activeCameraRequestIdRef.current) return;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraintTiers[i]);
+        break; // Found working camera stream!
+      } catch (err) {
+        console.warn(`Camera tier ${i + 1} failed:`, err);
+      }
+    }
+
+    if (requestId !== activeCameraRequestIdRef.current) {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+      }
+      return;
+    }
+
+    if (mediaStream) {
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        
+        // Safeguard to ensure video plays on iOS and Android devices without freezing
+        videoRef.current.play().catch(e => {
+          console.warn("Auto-play was prevented, interaction might be needed:", e);
+        });
       }
-    } catch (err: any) {
-      console.error("Camera access error:", err);
-      
-      if (requestId !== activeCameraRequestIdRef.current) return;
-
-      // Fallback if environment (back camera) fails and we are probably on desktop
-      if (currentFacingMode === "environment") {
-        try {
-          const fallbackStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "user" },
-            audio: false
-          });
-          
-          if (requestId !== activeCameraRequestIdRef.current) {
-            fallbackStream.getTracks().forEach(track => track.stop());
-            return;
-          }
-
-          setFacingMode("user");
-          setStream(fallbackStream);
-          if (videoRef.current) {
-            videoRef.current.srcObject = fallbackStream;
-          }
-          setCameraLoading(false);
-          return;
-        } catch (innerErr) {
-          console.error("Fallback camera failure:", innerErr);
-        }
-      }
-      
+      setCameraLoading(false);
+    } else {
+      // All fallback attempts failed
       if (requestId === activeCameraRequestIdRef.current) {
         setCameraError(
-          "Não foi possível acessar a câmera do celular. Por favor, certifique-se de conceder permissão de câmera ao navegador e que nenhum outro app a esteja utilizando."
+          "Não foi possível acessar a câmera do celular. Por favor, certifique-se de conceder permissão de câmera ao navegador e verificar se o seu celular suporta acesso direto."
         );
-      }
-    } finally {
-      if (requestId === activeCameraRequestIdRef.current) {
         setCameraLoading(false);
       }
     }
