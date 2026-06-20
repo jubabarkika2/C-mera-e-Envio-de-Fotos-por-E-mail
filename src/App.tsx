@@ -621,7 +621,7 @@ export default function App() {
               ) : (
                 /* Normal Interactive Camera Viewfinder */
                 <div className="flex flex-col gap-6">
-                  <div className="relative aspect-[3/4] md:aspect-video w-full max-w-2xl mx-auto rounded-[32px] md:rounded-[40px] overflow-hidden bg-black border border-white/15 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col justify-center items-center group">
+                  <div className="relative aspect-[9/16] md:aspect-video w-full max-w-2xl mx-auto rounded-[32px] md:rounded-[40px] overflow-hidden bg-black border border-white/15 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col justify-center items-center group">
                     {/* Visual Lens Outer Mask Frame */}
                     <div className="absolute inset-0 border-[16px] md:border-[20px] border-black/40 pointer-events-none z-10" />
 
@@ -647,16 +647,22 @@ export default function App() {
                       <span className="opacity-60">1080P 60FPS</span>
                     </div>
 
-                    {/* Bottom-left Battery & Rec Status Overlay */}
-                    <div className="absolute bottom-8 left-8 z-10 flex items-center gap-2.5 font-mono text-[9px] text-slate-400 pointer-events-none tracking-widest dropdown-shadow">
+                    {/* Left HUD camera mode indicator (Moved to Top Left HUD group area) */}
+                    <div className="absolute top-24 left-8 z-15 px-3 py-1 bg-slate-950/80 backdrop-blur-md rounded-full text-[9px] font-mono border border-white/5 flex items-center gap-1.5 text-slate-300">
+                      <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>{isSimulating ? "SIMULATION MODE" : (facingMode === "user" ? "Selfie Mode" : "Traseira RAW")}</span>
+                    </div>
+
+                    {/* Bottom-left Battery & Rec Status Overlay (Lifted up slightly) */}
+                    <div className="absolute bottom-32 left-8 z-10 flex items-center gap-2.5 font-mono text-[9px] text-slate-400 pointer-events-none tracking-widest dropdown-shadow">
                       <div className="w-10 h-2 bg-white/10 rounded-full overflow-hidden">
                         <div className="w-4/5 h-full bg-emerald-500"></div>
                       </div>
                       <span className="opacity-75 uppercase">BATTERY OK</span>
                     </div>
 
-                    {/* Bottom-right Camera active Mode */}
-                    <div className="absolute bottom-8 right-8 z-10 pointer-events-none">
+                    {/* Bottom-right Camera active Mode (Lifted up slightly) */}
+                    <div className="absolute bottom-32 right-8 z-10 pointer-events-none">
                       <span className="px-2 py-0.5 bg-slate-950/80 backdrop-blur-md rounded-md text-[9px] font-mono border border-white/5 text-indigo-400 uppercase tracking-widest">
                         {facingMode === "user" ? "Front-Lens" : "Wide-Lens"}
                       </span>
@@ -720,27 +726,21 @@ export default function App() {
                       </button>
                     </div>
 
-                    {/* Left HUD camera mode indicator */}
-                    <div className="absolute bottom-6 left-6 z-15 px-3 py-1 bg-slate-950/80 backdrop-blur-md rounded-full text-[9px] font-mono border border-white/5 flex items-center gap-1.5 text-slate-300">
-                      <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>{isSimulating ? "SIMULATION MODE" : (facingMode === "user" ? "Selfie Mode" : "Traseira RAW")}</span>
+                    {/* Floating Shutter Trigger in the Bottom-Center */}
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5">
+                      <div className="w-20 h-20 rounded-full bg-black/60 backdrop-blur-md p-1.5 border border-white/20 shadow-[0_0_30px_rgba(0,0,0,0.6)] flex items-center justify-center">
+                        <button
+                          onClick={capturePhoto}
+                          disabled={cameraLoading || (!stream && !isSimulating)}
+                          className="w-full h-full rounded-full bg-white flex items-center justify-center ring-4 ring-indigo-500/30 hover:scale-105 active:scale-95 disabled:bg-slate-800 disabled:ring-0 disabled:opacity-40 disabled:scale-100 cursor-pointer transition-all duration-200 shadow-[0_0_20px_rgba(255,255,255,0.4)] outline-none overflow-hidden"
+                        >
+                          <div className="w-6 h-6 rounded-full border-2 border-slate-950/20"></div>
+                        </button>
+                      </div>
+                      <span className="text-[7px] font-bold text-white/40 tracking-[0.2em] font-mono uppercase">
+                        TAP TO CAPTURE
+                      </span>
                     </div>
-                  </div>
-
-                  {/* Shutter Trigger Layout Container with glowing rings */}
-                  <div className="flex flex-col items-center gap-4 py-4 relative">
-                    <div className="w-24 h-24 rounded-full bg-[#080809] p-2 border border-white/10 shadow-2xl flex items-center justify-center">
-                      <button
-                        onClick={capturePhoto}
-                        disabled={cameraLoading || (!stream && !isSimulating)}
-                        className="w-full h-full rounded-full bg-white flex items-center justify-center ring-4 ring-indigo-500/20 hover:scale-95 active:scale-90 disabled:bg-slate-800 disabled:ring-0 disabled:opacity-40 disabled:scale-100 cursor-pointer transition-all duration-200 shadow-[0_0_25px_rgba(99,102,241,0.4)] outline-none overflow-hidden"
-                      >
-                        <div className="w-8 h-8 rounded-full border-2 border-slate-950/20"></div>
-                      </button>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-500 tracking-[0.2em] font-mono uppercase">
-                      DISPARADOR DE ALTA PRECISÃO
-                    </span>
                   </div>
 
                   {/* Manual Importer Expansion option for fine-tuning */}
