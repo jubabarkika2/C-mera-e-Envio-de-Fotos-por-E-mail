@@ -49,6 +49,7 @@ export default function App() {
   const [isFlashing, setIsFlashing] = useState(false);
   const [showImporter, setShowImporter] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const activeCameraRequestIdRef = useRef<number>(0);
   const [isSimulating, setIsSimulating] = useState(false);
 
   // Email Config States
@@ -130,16 +131,20 @@ export default function App() {
 
   // Camera Actions
   const startCamera = async (currentFacingMode: "user" | "environment") => {
+    const requestId = ++activeCameraRequestIdRef.current;
+    
     setIsSimulating(false);
     setCameraLoading(true);
     setCameraError(null);
     stopCamera();
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setCameraError(
-        "Seu navegador ou iframe impede o acesso direto à câmera por motivos de segurança. Por favor, use a Importação Manual abaixo para enviar fotos."
-      );
-      setCameraLoading(false);
+      if (requestId === activeCameraRequestIdRef.current) {
+        setCameraError(
+          "Seu navegador ou iframe impede o acesso direto à câmera por motivos de segurança. Por favor, use a Importação Manual abaixo para enviar fotos."
+        );
+        setCameraLoading(false);
+      }
       return;
     }
 
@@ -154,12 +159,22 @@ export default function App() {
       };
       
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      if (requestId !== activeCameraRequestIdRef.current) {
+        // A newer request has started or camera was stopped. Stop this stream immediately to avoid locking the camera.
+        mediaStream.getTracks().forEach(track => track.stop());
+        return;
+      }
+
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
     } catch (err: any) {
       console.error("Camera access error:", err);
+      
+      if (requestId !== activeCameraRequestIdRef.current) return;
+
       // Fallback if environment (back camera) fails and we are probably on desktop
       if (currentFacingMode === "environment") {
         try {
@@ -167,6 +182,12 @@ export default function App() {
             video: { facingMode: "user" },
             audio: false
           });
+          
+          if (requestId !== activeCameraRequestIdRef.current) {
+            fallbackStream.getTracks().forEach(track => track.stop());
+            return;
+          }
+
           setFacingMode("user");
           setStream(fallbackStream);
           if (videoRef.current) {
@@ -178,15 +199,21 @@ export default function App() {
           console.error("Fallback camera failure:", innerErr);
         }
       }
-      setCameraError(
-        "Não foi possível acessar a câmera do celular. Por favor, certifique-se de conceder permissão de câmera ao navegador e que nenhum outro app a esteja utilizando."
-      );
+      
+      if (requestId === activeCameraRequestIdRef.current) {
+        setCameraError(
+          "Não foi possível acessar a câmera do celular. Por favor, certifique-se de conceder permissão de câmera ao navegador e que nenhum outro app a esteja utilizando."
+        );
+      }
     } finally {
-      setCameraLoading(false);
+      if (requestId === activeCameraRequestIdRef.current) {
+        setCameraLoading(false);
+      }
     }
   };
 
   const stopCamera = () => {
+    activeCameraRequestIdRef.current++; // Invalidate any older or pending requests
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
