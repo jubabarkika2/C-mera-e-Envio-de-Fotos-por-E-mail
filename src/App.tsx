@@ -621,7 +621,7 @@ export default function App() {
               ) : (
                 /* Normal Interactive Camera Viewfinder */
                 <div className="flex flex-col gap-6">
-                  <div className="relative aspect-video w-full max-w-2xl mx-auto rounded-[32px] md:rounded-[40px] overflow-hidden bg-black border border-white/15 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col justify-center items-center group">
+                  <div className="relative aspect-[3/4] md:aspect-video w-full max-w-2xl mx-auto rounded-[32px] md:rounded-[40px] overflow-hidden bg-black border border-white/15 shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col justify-center items-center group">
                     {/* Visual Lens Outer Mask Frame */}
                     <div className="absolute inset-0 border-[16px] md:border-[20px] border-black/40 pointer-events-none z-10" />
 
