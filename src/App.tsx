@@ -432,25 +432,30 @@ export default function App() {
             <h1 className="text-xl font-semibold tracking-tighter text-white">
               SNAP<span className="text-indigo-500">SEND</span>
             </h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[9px] text-slate-500 uppercase tracking-widest font-mono">Destinatário Principal:</span>
-              <span className="text-[10px] font-mono text-indigo-300">
-                {selectedRecipient ? selectedRecipient : "Cadastre nas configurações"}
-              </span>
-            </div>
           </div>
         </div>
 
-        {/* Global Immersive Status Pill */}
-        <div className="flex items-center gap-4 text-xs font-mono text-slate-400 px-3.5 py-2 bg-black/40 rounded-full border border-white/5 shadow-inner">
-          <span className="flex items-center gap-1.5">
+        {/* Global Immersive Status & Settings Pill in Fixed Bar */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs font-mono text-slate-400 px-3 py-1.5 bg-black/40 rounded-full border border-white/5 shadow-inner">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span className="text-[10px] tracking-widest uppercase font-bold text-slate-400">Pronto</span>
-          </span>
-          <span className="text-white/10">|</span>
-          <span className="hidden sm:inline text-[10px] uppercase text-slate-400">
-            Galeria: <b className="text-slate-100 font-mono">{photos.length}</b>
-          </span>
+          </div>
+
+          <button
+            onClick={() => {
+              setActiveTab("settings");
+              setSelectedPhoto(null);
+            }}
+            title="Configurações"
+            className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+              activeTab === "settings"
+                ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-400 font-bold"
+                : "bg-black/40 border-white/5 text-slate-400 hover:text-white hover:border-white/10"
+            }`}
+          >
+            <Settings className="w-4.5 h-4.5" />
+          </button>
         </div>
       </header>
 
@@ -468,16 +473,7 @@ export default function App() {
               transition={{ duration: 0.25 }}
               className="flex-1 flex flex-col gap-6"
             >
-              {/* Screen instructions with immersive visual look */}
-              <div className="p-4 bg-[#0C0C0E] rounded-3xl border border-white/5 text-slate-300 flex gap-3 text-xs md:text-sm items-start shadow-xl">
-                <Info className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-white tracking-tight">Captura de Alta Fidelidade</p>
-                  <p className="text-slate-400 text-xs mt-1 leading-relaxed">
-                    Capture fotos e armazene de maneira privada em seu applet. Altere o ângulo da lente e faça o upload de forma instantânea para e-mails configurados.
-                  </p>
-                </div>
-              </div>
+
 
               {cameraError ? (
                 /* Fallback mode if camera permissions are blocked */
@@ -1233,26 +1229,6 @@ export default function App() {
               )}
             </div>
             <span>Galeria</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setActiveTab("settings");
-              setSelectedPhoto(null);
-            }}
-            className={`py-2 px-3 rounded-2xl flex flex-col items-center justify-center gap-1 text-[10px] font-mono uppercase tracking-wider font-semibold transition-all cursor-pointer outline-none relative duration-300 ${
-              activeTab === "settings" ? "text-indigo-400" : "text-slate-500 hover:text-slate-300"
-            }`}
-          >
-            {activeTab === "settings" && (
-              <motion.span
-                layoutId="active-pill"
-                className="absolute inset-0 bg-indigo-500/10 border border-white/10 rounded-2xl -z-10"
-                transition={{ type: "spring", stiffness: 380, damping: 30 }}
-              />
-            )}
-            <Settings className="w-4 h-4 shrink-0" />
-            <span>Configurar</span>
           </button>
 
         </div>
