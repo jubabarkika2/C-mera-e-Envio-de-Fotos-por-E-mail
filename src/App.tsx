@@ -49,6 +49,7 @@ export default function App() {
   const [isFlashing, setIsFlashing] = useState(false);
   const [showImporter, setShowImporter] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
 
   // Email Config States
   const [registeredEmails, setRegisteredEmails] = useState<string[]>([]);
@@ -107,7 +108,7 @@ export default function App() {
 
   // Monitor camera stream based on page visibility and active tab
   useEffect(() => {
-    if (activeTab === "camera") {
+    if (activeTab === "camera" && !isSimulating) {
       startCamera(facingMode);
     } else {
       stopCamera();
@@ -116,7 +117,7 @@ export default function App() {
     return () => {
       stopCamera();
     };
-  }, [activeTab, facingMode]);
+  }, [activeTab, facingMode, isSimulating]);
 
   const loadPhotos = async () => {
     try {
@@ -129,6 +130,7 @@ export default function App() {
 
   // Camera Actions
   const startCamera = async (currentFacingMode: "user" | "environment") => {
+    setIsSimulating(false);
     setCameraLoading(true);
     setCameraError(null);
     stopCamera();
@@ -197,6 +199,95 @@ export default function App() {
   };
 
   const capturePhoto = async () => {
+    if (isSimulating) {
+      // Direct instantaneous flash effect
+      setIsFlashing(true);
+      setTimeout(() => setIsFlashing(false), 200);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 1280;
+      canvas.height = 720;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        // Draw a dark space high-contrast tech gradient
+        const grad = ctx.createLinearGradient(0, 0, 1280, 720);
+        grad.addColorStop(0, "#09080c");
+        grad.addColorStop(0.5, "#0e111a");
+        grad.addColorStop(1, "#1c1944");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 1280, 720);
+
+        // Draw camera crosshairs and HUD in simulation mode
+        ctx.strokeStyle = "rgba(99, 102, 241, 0.4)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(640, 360, 200, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(99, 102, 241, 0.15)";
+        ctx.beginPath();
+        ctx.arc(640, 360, 280, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Crosshairs
+        ctx.strokeStyle = "rgba(99, 102, 241, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(640, 300);
+        ctx.lineTo(640, 420);
+        ctx.moveTo(580, 360);
+        ctx.lineTo(700, 360);
+        ctx.stroke();
+
+        // Center dot
+        ctx.fillStyle = "#6366f1";
+        ctx.beginPath();
+        ctx.arc(640, 360, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Render premium typography for the caption
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "italic bold 44px sans-serif";
+        ctx.fillText("FOTOENVIO", 80, 600);
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+        ctx.font = "24px monospace";
+        ctx.fillText("SIMULATION-CAPTURE RAW // OK", 80, 640);
+
+        // Date Info
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "22px monospace";
+        ctx.fillText(new Date().toLocaleString("pt-BR"), 80, 90);
+
+        // HUD elements
+        ctx.fillStyle = "rgba(239, 68, 68, 0.9)";
+        ctx.fillText("● REC DEV_MODE", 1000, 90);
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+        ctx.strokeRect(40, 40, 1200, 640);
+
+        const dataUrl = canvas.toDataURL("image/png");
+
+        const newPhoto: CapturedPhoto = {
+          id: "photo_" + Date.now(),
+          dataUrl,
+          createdAt: Date.now(),
+          sentTo: []
+        };
+
+        try {
+          await savePhoto(newPhoto);
+          await loadPhotos();
+          
+          setCaptureMessage(true);
+          setTimeout(() => setCaptureMessage(false), 2500);
+        } catch (err) {
+          console.error("Failed to save simulated photo:", err);
+        }
+      }
+      return;
+    }
+
     if (!videoRef.current || !stream) return;
 
     // Direct instantaneous flash effect
@@ -494,12 +585,23 @@ export default function App() {
                       <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">
                         Como este aplicativo está rodando dentro de uma pré-visualização (iframe) ou o navegador não tem permissão para usar o hardware, a câmera real foi desativada pelo sistema.
                       </p>
-                      <button
-                        onClick={() => startCamera(facingMode)}
-                        className="mt-3 px-4 py-1.5 bg-white/5 hover:bg-white/10 text-slate-200 rounded-full text-[10px] font-bold uppercase tracking-wider font-mono flex items-center gap-1.5 transition-all border border-white/10 cursor-pointer mx-auto sm:mx-0"
-                      >
-                        <RefreshCw className="w-3 h-3" /> Re-inicializar Sensor
-                      </button>
+                      <div className="mt-4 flex flex-wrap gap-2.5 justify-center sm:justify-start">
+                        <button
+                          onClick={() => startCamera(facingMode)}
+                          className="px-4 py-2 bg-white/5 hover:bg-white/10 text-slate-200 rounded-2xl text-[10px] font-bold uppercase tracking-wider font-mono flex items-center gap-1.5 transition-all border border-white/5 cursor-pointer"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" /> Re-inicializar Sensor
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCameraError(null);
+                            setIsSimulating(true);
+                          }}
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-wider font-mono flex items-center gap-1.5 transition-all border border-indigo-500/30 cursor-pointer shadow-lg shadow-indigo-600/20"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" /> Ativar Simulador de Câmera
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -579,13 +681,33 @@ export default function App() {
                       </div>
                     )}
 
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className={`w-full h-full object-cover ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
-                    />
+                    {isSimulating ? (
+                      <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/40 via-black to-[#050508] flex flex-col items-center justify-center p-6 text-center select-none overflow-hidden">
+                        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.15) 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
+                        <div className="flex flex-col items-center gap-4 z-10">
+                          <div className="w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 animate-pulse">
+                            <Sparkles className="w-8 h-8" />
+                          </div>
+                          <div>
+                            <h4 className="text-white text-sm font-bold uppercase tracking-wider font-mono">Simulador de Lente Ativo</h4>
+                            <p className="text-slate-400 text-[11px] max-w-sm mt-1 leading-relaxed">
+                              Simulador ativo para capturas em desktops ou ambientes sem câmera integrada.
+                            </p>
+                          </div>
+                          <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 font-mono text-[9px] uppercase tracking-widest rounded-full border border-indigo-500/30">
+                            Pronto para Disparar
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className={`w-full h-full object-cover ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
+                      />
+                    )}
                     
                     {/* Floating active manual camera controls */}
                     <div className="absolute top-6 right-6 z-15 flex gap-2">
@@ -601,7 +723,7 @@ export default function App() {
                     {/* Left HUD camera mode indicator */}
                     <div className="absolute bottom-6 left-6 z-15 px-3 py-1 bg-slate-950/80 backdrop-blur-md rounded-full text-[9px] font-mono border border-white/5 flex items-center gap-1.5 text-slate-300">
                       <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>{facingMode === "user" ? "Selfie Mode" : "Traseira RAW"}</span>
+                      <span>{isSimulating ? "SIMULATION MODE" : (facingMode === "user" ? "Selfie Mode" : "Traseira RAW")}</span>
                     </div>
                   </div>
 
@@ -610,7 +732,7 @@ export default function App() {
                     <div className="w-24 h-24 rounded-full bg-[#080809] p-2 border border-white/10 shadow-2xl flex items-center justify-center">
                       <button
                         onClick={capturePhoto}
-                        disabled={cameraLoading || !stream}
+                        disabled={cameraLoading || (!stream && !isSimulating)}
                         className="w-full h-full rounded-full bg-white flex items-center justify-center ring-4 ring-indigo-500/20 hover:scale-95 active:scale-90 disabled:bg-slate-800 disabled:ring-0 disabled:opacity-40 disabled:scale-100 cursor-pointer transition-all duration-200 shadow-[0_0_25px_rgba(99,102,241,0.4)] outline-none overflow-hidden"
                       >
                         <div className="w-8 h-8 rounded-full border-2 border-slate-950/20"></div>
