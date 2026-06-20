@@ -1,0 +1,6 @@
+{
+  "name": "Câmera e Envio de Fotos por E-mail",
+  "description": "Aplicativo para capturar fotos com a câmera do celular, salvá-las em uma galeria interna do app e enviá-las para e-mails cadastrados via SMTP.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
