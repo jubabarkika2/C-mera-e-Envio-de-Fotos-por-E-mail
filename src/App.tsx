@@ -131,12 +131,13 @@ export default function App() {
 
   // Camera Actions
   const startCamera = async (currentFacingMode: "user" | "environment") => {
-    const requestId = ++activeCameraRequestIdRef.current;
+    stopCamera();
     
     setIsSimulating(false);
     setCameraLoading(true);
     setCameraError(null);
-    stopCamera();
+
+    const requestId = ++activeCameraRequestIdRef.current;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       if (requestId === activeCameraRequestIdRef.current) {
