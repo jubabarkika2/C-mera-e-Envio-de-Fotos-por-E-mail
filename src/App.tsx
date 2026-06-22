@@ -691,12 +691,7 @@ export default function App() {
                       <span className="opacity-75 uppercase">BATTERY OK</span>
                     </div>
 
-                    {/* Bottom-right Camera active Mode */}
-                    <div className="absolute bottom-8 right-8 z-10 pointer-events-none">
-                      <span className="px-2 py-0.5 bg-slate-950/80 backdrop-blur-md rounded-md text-[9px] font-mono border border-white/5 text-indigo-400 uppercase tracking-widest">
-                        {facingMode === "user" ? "Front-Lens" : "Wide-Lens"}
-                      </span>
-                    </div>
+
 
                     {/* Camera Flash Animation Layer */}
                     <AnimatePresence>
@@ -756,11 +751,7 @@ export default function App() {
                       </button>
                     </div>
 
-                    {/* Left HUD camera mode indicator */}
-                    <div className="absolute bottom-6 left-6 z-15 px-3 py-1 bg-slate-950/80 backdrop-blur-md rounded-full text-[9px] font-mono border border-white/5 flex items-center gap-1.5 text-slate-300">
-                      <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>{isSimulating ? "SIMULATION MODE" : (facingMode === "user" ? "Selfie Mode" : "Traseira RAW")}</span>
-                    </div>
+
                   </div>
 
                   {/* Shutter Trigger Layout Container with glowing rings */}
