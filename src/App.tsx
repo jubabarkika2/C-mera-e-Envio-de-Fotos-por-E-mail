@@ -746,8 +746,8 @@ export default function App() {
                       </button>
                     </div>
 
-                    {/* Shutter Trigger Layout Container with glowing rings - Floating 10% up */}
-                    <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2">
+                    {/* Shutter Trigger Layout Container with glowing rings - Floating 2% up */}
+                    <div className="absolute bottom-[2%] left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2">
                       <div className="w-22 h-22 rounded-full bg-slate-950/70 p-1.5 border border-white/10 shadow-2xl flex items-center justify-center backdrop-blur-sm">
                         <button
                           onClick={capturePhoto}
@@ -757,9 +757,6 @@ export default function App() {
                           <div className="w-7 h-7 rounded-full border-2 border-slate-950/10"></div>
                         </button>
                       </div>
-                      <span className="text-[8px] font-bold text-slate-300 tracking-[0.2em] font-mono uppercase bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                        DISPARADOR DE ALTA PRECISÃO
-                      </span>
                     </div>
 
                   </div>
