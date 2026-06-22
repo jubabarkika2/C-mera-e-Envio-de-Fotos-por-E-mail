@@ -43,6 +43,7 @@ export default function App() {
 
   // Camera State
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
@@ -120,6 +121,16 @@ export default function App() {
     };
   }, [activeTab, facingMode, isSimulating]);
 
+  // Keep the video element srcObject synchronized with the active stream
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(e => {
+        console.warn("Auto-play was prevented or video pending:", e);
+      });
+    }
+  }, [stream, activeTab]);
+
   const loadPhotos = async () => {
     try {
       const list = await getAllPhotos();
@@ -195,6 +206,7 @@ export default function App() {
 
     if (mediaStream) {
       setStream(mediaStream);
+      streamRef.current = mediaStream;
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         
@@ -217,6 +229,10 @@ export default function App() {
 
   const stopCamera = () => {
     activeCameraRequestIdRef.current++; // Invalidate any older or pending requests
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
