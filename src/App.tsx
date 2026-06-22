@@ -667,12 +667,7 @@ export default function App() {
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-6 bg-indigo-500/30 pointer-events-none z-10" />
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-0.5 bg-indigo-500/30 pointer-events-none z-10" />
 
-                    {/* Top-left HUD Overlays */}
-                    <div className="absolute top-8 left-8 flex flex-col gap-0.5 z-10 font-mono text-[9px] pointer-events-none tracking-wider uppercase text-slate-400">
-                      <span className="text-indigo-400 font-bold">ISO 400</span>
-                      <span className="opacity-60">F/2.8</span>
-                      <span className="opacity-40">AUTO WB</span>
-                    </div>
+
 
                     {/* Top-right HUD Overlays */}
                     <div className="absolute top-8 right-8 flex flex-col items-end gap-0.5 z-10 font-mono text-[9px] pointer-events-none tracking-wider uppercase text-slate-400">
@@ -739,7 +734,7 @@ export default function App() {
                         className={`w-full h-full object-cover ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
                       />
                     )}
-                    
+
                     {/* Floating active manual camera controls */}
                     <div className="absolute top-6 right-6 z-15 flex gap-2">
                       <button
@@ -751,23 +746,22 @@ export default function App() {
                       </button>
                     </div>
 
-
-                  </div>
-
-                  {/* Shutter Trigger Layout Container with glowing rings */}
-                  <div className="flex flex-col items-center gap-4 py-4 relative">
-                    <div className="w-24 h-24 rounded-full bg-[#080809] p-2 border border-white/10 shadow-2xl flex items-center justify-center">
-                      <button
-                        onClick={capturePhoto}
-                        disabled={cameraLoading || (!stream && !isSimulating)}
-                        className="w-full h-full rounded-full bg-white flex items-center justify-center ring-4 ring-indigo-500/20 hover:scale-95 active:scale-90 disabled:bg-slate-800 disabled:ring-0 disabled:opacity-40 disabled:scale-100 cursor-pointer transition-all duration-200 shadow-[0_0_25px_rgba(99,102,241,0.4)] outline-none overflow-hidden"
-                      >
-                        <div className="w-8 h-8 rounded-full border-2 border-slate-950/20"></div>
-                      </button>
+                    {/* Shutter Trigger Layout Container with glowing rings - Floating 20% up */}
+                    <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2">
+                      <div className="w-22 h-22 rounded-full bg-slate-950/70 p-1.5 border border-white/10 shadow-2xl flex items-center justify-center backdrop-blur-sm">
+                        <button
+                          onClick={capturePhoto}
+                          disabled={cameraLoading || (!stream && !isSimulating)}
+                          className="w-full h-full rounded-full bg-white hover:bg-slate-100 flex items-center justify-center ring-4 ring-indigo-500/30 hover:scale-95 active:scale-90 disabled:bg-slate-800 disabled:ring-0 disabled:opacity-40 disabled:scale-100 cursor-pointer transition-all duration-200 shadow-[0_0_20px_rgba(99,102,241,0.4)] outline-none overflow-hidden"
+                        >
+                          <div className="w-7 h-7 rounded-full border-2 border-slate-950/10"></div>
+                        </button>
+                      </div>
+                      <span className="text-[8px] font-bold text-slate-300 tracking-[0.2em] font-mono uppercase bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                        DISPARADOR DE ALTA PRECISÃO
+                      </span>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-500 tracking-[0.2em] font-mono uppercase">
-                      DISPARADOR DE ALTA PRECISÃO
-                    </span>
+
                   </div>
 
                   {/* Manual Importer Expansion option for fine-tuning */}
