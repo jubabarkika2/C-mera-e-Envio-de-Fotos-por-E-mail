@@ -122,7 +122,7 @@ export default function App() {
 
   // Monitor camera stream based on page visibility and active tab
   useEffect(() => {
-    if (activeTab === "camera" && !isSimulating) {
+    if (unlocked && activeTab === "camera" && !isSimulating) {
       startCamera(facingMode);
     } else {
       stopCamera();
@@ -131,7 +131,7 @@ export default function App() {
     return () => {
       stopCamera();
     };
-  }, [activeTab, facingMode, isSimulating]);
+  }, [activeTab, facingMode, isSimulating, unlocked]);
 
   // Keep the video element srcObject synchronized with the active stream
   useEffect(() => {
@@ -141,7 +141,7 @@ export default function App() {
         console.warn("Auto-play was prevented or video pending:", e);
       });
     }
-  }, [stream, activeTab]);
+  }, [stream, activeTab, unlocked]);
 
   const loadPhotos = async () => {
     try {
