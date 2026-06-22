@@ -746,8 +746,8 @@ export default function App() {
                       </button>
                     </div>
 
-                    {/* Shutter Trigger Layout Container with glowing rings - Floating 20% up */}
-                    <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2">
+                    {/* Shutter Trigger Layout Container with glowing rings - Floating 10% up */}
+                    <div className="absolute bottom-[10%] left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2">
                       <div className="w-22 h-22 rounded-full bg-slate-950/70 p-1.5 border border-white/10 shadow-2xl flex items-center justify-center backdrop-blur-sm">
                         <button
                           onClick={capturePhoto}
