@@ -516,6 +516,13 @@ export default function App() {
       await loadPhotos();
 
       setSendSuccess(`Foto enviada com sucesso para ${selectedRecipient}!`);
+
+      // Automatically return to the camera view after showing the notification for 3 seconds
+      setTimeout(() => {
+        setSendSuccess(null);
+        setSelectedPhoto(null);
+        setActiveTab("camera");
+      }, 3000);
     } catch (err: any) {
       console.error("Error sending email:", err);
       if (err.message === "SMTP_NOT_CONFIGURED") {
