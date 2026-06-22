@@ -22,7 +22,9 @@ import {
   Sparkles,
   Lock,
   Unlock,
-  EyeOff
+  EyeOff,
+  Square,
+  CheckSquare
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { savePhoto, getAllPhotos, deletePhoto, CapturedPhoto } from "./db";
@@ -52,6 +54,10 @@ export default function App() {
   // Photos State
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<CapturedPhoto | null>(null);
+
+  // Multi-select States
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
 
   // Camera State
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -599,7 +605,115 @@ export default function App() {
       if (selectedPhoto?.id === photoId) {
         setSelectedPhoto(null);
       }
+      // Also remove from selectedPhotoIds if present
+      setSelectedPhotoIds(prev => prev.filter(id => id !== photoId));
       await loadPhotos();
+    }
+  };
+
+  const handleDeleteMultiplePhotos = async () => {
+    if (selectedPhotoIds.length === 0) return;
+    const count = selectedPhotoIds.length;
+    if (confirm(`Deseja realmente remover as ${count} fotos selecionadas da sua galeria?`)) {
+      for (const id of selectedPhotoIds) {
+        await deletePhoto(id);
+        if (selectedPhoto?.id === id) {
+          setSelectedPhoto(null);
+        }
+      }
+      setSelectedPhotoIds([]);
+      setIsMultiSelectMode(false);
+      await loadPhotos();
+    }
+  };
+
+  const handleSendMultiplePhotos = async () => {
+    if (selectedPhotoIds.length === 0) return;
+    if (!selectedRecipient) {
+      setSendError("Por favor, cadastre e selecione um e-mail de destino.");
+      return;
+    }
+
+    setIsSending(true);
+    setSendSuccess(null);
+    setSendError(null);
+
+    const selectedPhotos = photos.filter(p => selectedPhotoIds.includes(p.id));
+    const imagesPayload = selectedPhotos.map(p => ({
+      dataUrl: p.dataUrl,
+      imageName: `captura_${p.id.replace("photo_", "")}.png`
+    }));
+
+    try {
+      const response = await fetch("/api/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          to: selectedRecipient,
+          images: imagesPayload,
+          smtpSettings: {
+            host: smtpSettings.host || undefined,
+            port: smtpSettings.port || undefined,
+            secure: smtpSettings.secure,
+            user: smtpSettings.user || undefined,
+            pass: smtpSettings.pass || undefined
+          }
+        })
+      });
+
+      let result: any = {};
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        result = await response.json();
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Resposta inesperada do servidor (${response.status}): ${errorText.substring(0, 120)}`);
+      }
+
+      if (!response.ok) {
+        if (result.error === "SMTP_NOT_CONFIGURED") {
+          throw new Error("SMTP_NOT_CONFIGURED");
+        } else {
+          throw new Error(result.message || "Falha no envio do e-mail.");
+        }
+      }
+
+      // Success updating photos locally to track where they were sent
+      for (const photo of selectedPhotos) {
+        const updatedPhoto = {
+          ...photo,
+          sentTo: [...new Set([...photo.sentTo, selectedRecipient])]
+        };
+        await savePhoto(updatedPhoto);
+      }
+
+      // Refresh list
+      await loadPhotos();
+
+      setSendSuccess(`${selectedPhotos.length} fotos enviadas com sucesso para ${selectedRecipient}!`);
+
+      // De-select and turn off mode
+      setSelectedPhotoIds([]);
+      setIsMultiSelectMode(false);
+
+      setTimeout(() => {
+        setSendSuccess(null);
+      }, 5000);
+    } catch (err: any) {
+      console.error("Error sending multiple emails:", err);
+      if (err.message === "SMTP_NOT_CONFIGURED") {
+        setSendError(
+          "Configuração de e-mail SMTP ausente! Acesse a aba 'Configurar' para cadastrar seu servidor de e-mail de forma segura."
+        );
+      } else {
+        setSendError(
+          `Falha ao enviar e-mails: ${err.message || "Por favor, verifique suas credenciais SMTP e conexão."}`
+        );
+      }
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -1199,7 +1313,7 @@ export default function App() {
               ) : (
                 // Full beautiful grid interface
                 <div className="flex-1 flex flex-col gap-4">
-                  <div className="flex justify-between items-end pb-2 border-b border-white/5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
                     <div>
                       <h2 className="text-lg font-bold text-white uppercase tracking-wider font-mono">
                         Galeria Local
@@ -1209,11 +1323,120 @@ export default function App() {
                       </p>
                     </div>
                     {photos.length > 0 && (
-                      <span className="text-[9px] text-slate-500 font-mono tracking-wider uppercase">
-                        Selecione para processar
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setIsMultiSelectMode(!isMultiSelectMode);
+                            setSelectedPhotoIds([]); // Clear selection when toggling
+                          }}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
+                            isMultiSelectMode
+                              ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20"
+                              : "bg-white/5 border-white/5 hover:border-white/15 text-slate-300 hover:text-white"
+                          }`}
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-white" />
+                          {isMultiSelectMode ? "Sair da Seleção" : "Seleção Múltipla"}
+                        </button>
+                      </div>
                     )}
                   </div>
+
+                  {/* Multi-select active controller bar */}
+                  {isMultiSelectMode && photos.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-[#0C0C0E] border border-white/5 p-4 rounded-3xl flex flex-col gap-4 shadow-xl"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3 bg-black/20 p-2 rounded-2xl px-4">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-xs font-mono bg-indigo-950/40 text-indigo-400 font-bold border border-indigo-900/40 px-2.5 py-1 rounded-lg">
+                            {selectedPhotoIds.length} selecionadas
+                          </span>
+                          <button
+                            onClick={() => setSelectedPhotoIds(photos.map(p => p.id))}
+                            className="text-xs text-indigo-400 hover:text-indigo-300 font-medium font-mono cursor-pointer"
+                          >
+                            Selecionar todas
+                          </button>
+                          <span className="text-slate-600 text-[10px]">•</span>
+                          <button
+                            onClick={() => setSelectedPhotoIds([])}
+                            className="text-xs text-slate-400 hover:text-slate-300 font-medium font-mono cursor-pointer"
+                          >
+                            Sinalizar nenhuma
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleDeleteMultiplePhotos}
+                            disabled={selectedPhotoIds.length === 0 || isSending}
+                            className="px-3 py-1.5 bg-red-950/30 hover:bg-red-900/20 text-red-500 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed border border-red-900/30 text-xs font-mono font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Excluir ({selectedPhotoIds.length})
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Bulk send control */}
+                      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-black/40 p-4 rounded-2xl border border-white/5">
+                        <div className="flex-1 flex flex-col md:flex-row md:items-center gap-3">
+                          <span className="text-xs font-mono text-slate-300 shrink-0 flex items-center gap-1.5">
+                            <Mail className="w-4 h-4 text-[#6366f1]" /> Enviar selecionadas para:
+                          </span>
+                          {registeredEmails.length === 0 ? (
+                            <span className="text-xs text-amber-400 font-mono">
+                              Nenhum destinatário. Cadastre nas Configurações!
+                            </span>
+                          ) : (
+                            <select
+                              value={selectedRecipient}
+                              onChange={(e) => setSelectedRecipient(e.target.value)}
+                              className="bg-black text-slate-100 border border-white/5 py-2 px-3 rounded-xl text-xs outline-none focus:border-indigo-500 transition-all font-mono w-full md:w-64"
+                            >
+                              {registeredEmails.map((email) => (
+                                <option key={email} value={email}>
+                                  {email}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={handleSendMultiplePhotos}
+                          disabled={isSending || selectedPhotoIds.length === 0 || registeredEmails.length === 0}
+                          className="px-5 py-2.5 bg-indigo-600 disabled:bg-[#1a1a20] disabled:text-slate-600 hover:bg-indigo-500 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer disabled:cursor-not-allowed font-mono uppercase tracking-wide shrink-0"
+                        >
+                          {isSending ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin whitespace-nowrap" /> Transmitindo...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-3.5 h-3.5" /> Enviar para E-mail
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {sendSuccess && (
+                        <div className="p-3 bg-emerald-950/20 border border-emerald-900/35 text-emerald-300 rounded-2xl text-xs flex gap-2 items-center">
+                          <Check className="w-4 h-4 shrink-0 text-emerald-400" />
+                          <span>{sendSuccess}</span>
+                        </div>
+                      )}
+
+                      {sendError && (
+                        <div className="p-3 bg-red-950/20 border border-red-900/45 text-red-300 rounded-2xl text-xs flex gap-2 items-center">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                          <span>{sendError}</span>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
 
                   {photos.length === 0 ? (
                     <div className="py-20 text-center bg-[#0C0C0E] rounded-[32px] border border-white/5 flex flex-col items-center justify-center gap-4 text-slate-400 max-w-lg mx-auto w-full mt-6 shadow-2xl">
@@ -1243,11 +1466,29 @@ export default function App() {
                           minute: "2-digit"
                         });
 
+                        const isSelected = selectedPhotoIds.includes(photo.id);
+
+                        const handleCardClick = () => {
+                          if (isMultiSelectMode) {
+                            if (isSelected) {
+                              setSelectedPhotoIds(prev => prev.filter(id => id !== photo.id));
+                            } else {
+                              setSelectedPhotoIds(prev => [...prev, photo.id]);
+                            }
+                          } else {
+                            setSelectedPhoto(photo);
+                          }
+                        };
+
                         return (
                           <div
                             key={photo.id}
-                            className="group relative rounded-2xl overflow-hidden bg-[#0C0C0E] border border-white/5 hover:border-white/20 hover:shadow-2xl transition-all duration-350 cursor-pointer flex flex-col"
-                            onClick={() => setSelectedPhoto(photo)}
+                            className={`group relative rounded-2xl overflow-hidden bg-[#0C0C0E] border hover:shadow-2xl transition-all duration-350 cursor-pointer flex flex-col ${
+                              isMultiSelectMode && isSelected
+                                ? "border-indigo-500/80 ring-2 ring-indigo-500/20"
+                                : "border-white/5 hover:border-white/20"
+                            }`}
+                            onClick={handleCardClick}
                           >
                             {/* Graphic image frame container */}
                             <div className="aspect-video w-full overflow-hidden relative">
@@ -1257,15 +1498,37 @@ export default function App() {
                                 className="w-full h-full object-cover group-hover:scale-103 transition-all duration-350"
                                 referrerPolicy="no-referrer"
                               />
-                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-150 flex items-center justify-center">
-                                <span className="px-3 py-1.5 bg-black/80 rounded-full text-slate-100 text-xs font-semibold flex items-center gap-1.5 border border-white/5 backdrop-blur-sm">
-                                  <Eye className="w-3.5 h-3.5 text-indigo-400" /> Visualizar
-                                </span>
-                              </div>
+
+                              {/* Selection overlay box */}
+                              {isMultiSelectMode ? (
+                                <div className="absolute top-2.5 left-2.5 z-10">
+                                  <div className={`p-1.5 rounded-xl border flex items-center justify-center transition-all shadow-md ${
+                                    isSelected
+                                      ? "bg-indigo-600 border-indigo-500 text-white"
+                                      : "bg-black/60 border-white/25 text-slate-400"
+                                  }`}>
+                                    {isSelected ? (
+                                      <CheckSquare className="w-4 h-4 text-white" />
+                                    ) : (
+                                      <Square className="w-4 h-4 text-slate-300" />
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-150 flex items-center justify-center">
+                                  <span className="px-3 py-1.5 bg-black/80 rounded-full text-slate-100 text-xs font-semibold flex items-center gap-1.5 border border-white/5 backdrop-blur-sm">
+                                    <Eye className="w-3.5 h-3.5 text-indigo-400" /> Visualizar
+                                  </span>
+                                </div>
+                              )}
+
+                              {isMultiSelectMode && isSelected && (
+                                <div className="absolute inset-0 bg-indigo-950/10 pointer-events-none" />
+                              )}
                             </div>
 
                             {/* Caption element with status */}
-                            <div className="p-3.5 bg-[#0C0C0E]/90 flex justify-between items-center border-t border-white/5">
+                            <div className="p-3.5 bg-[#0C0C0E]/90 flex justify-between items-center border-t border-white/5 flex-1">
                               <div className="flex flex-col gap-1">
                                 <span className="text-[10px] font-mono text-slate-400">{dateFormatted}</span>
                                 {photo.sentTo.length > 0 ? (
@@ -1279,16 +1542,18 @@ export default function App() {
                                 )}
                               </div>
 
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation(); // Avoid triggering full screen selector
-                                  handleDeletePhoto(photo.id);
-                                }}
-                                title="Excluir"
-                                className="p-1.5 hover:bg-white/5 hover:text-red-400 text-slate-500 rounded-lg transition-all"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              {!isMultiSelectMode && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // Avoid triggering full screen selector
+                                    handleDeletePhoto(photo.id);
+                                  }}
+                                  title="Excluir"
+                                  className="p-1.5 hover:bg-white/5 hover:text-red-400 text-slate-500 rounded-lg transition-all cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </div>
                           </div>
                         );

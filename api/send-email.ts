@@ -20,12 +20,13 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { to, image, imageName, smtpSettings } = req.body || {};
+    const { to, image, imageName, smtpSettings, images } = req.body || {};
 
-    if (!to || !image) {
+    const hasImages = (images && Array.isArray(images) && images.length > 0);
+    if (!to || (!image && !hasImages)) {
       res.statusCode = 400;
       res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify({ error: "E-mail de destino e imagem são obrigatórios." }));
+      res.end(JSON.stringify({ error: "E-mail de destino e imagem(ns) são obrigatórios." }));
       return;
     }
 
@@ -46,14 +47,40 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    // Check if image data URL has metadata and split it
-    const matches = image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    let content = image;
-    let contentType = "image/png";
+    // Build attachments
+    const attachments = [];
 
-    if (matches && matches.length === 3) {
-      contentType = matches[1];
-      content = matches[2];
+    if (hasImages) {
+      for (const item of images) {
+        if (!item.dataUrl) continue;
+        const matches = item.dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        let content = item.dataUrl;
+        let contentType = "image/png";
+        if (matches && matches.length === 3) {
+          contentType = matches[1];
+          content = matches[2];
+        }
+        attachments.push({
+          filename: item.imageName || "captura.png",
+          content: content,
+          encoding: "base64",
+          contentType: contentType
+        });
+      }
+    } else if (image) {
+      const matches = image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      let content = image;
+      let contentType = "image/png";
+      if (matches && matches.length === 3) {
+        contentType = matches[1];
+        content = matches[2];
+      }
+      attachments.push({
+        filename: imageName || "captura.png",
+        content: content,
+        encoding: "base64",
+        contentType: contentType
+      });
     }
 
     const transporter = nodemailer.createTransport({
@@ -66,19 +93,21 @@ export default async function handler(req: any, res: any) {
       }
     });
 
+    const isMultiple = attachments.length > 1;
+    const subject = isMultiple
+      ? `📸 ${attachments.length} fotos enviadas pelo aplicativo`
+      : `📸 Foto capturada pelo aplicativo - ${imageName || 'captura.png'}`;
+
+    const text = isMultiple
+      ? `Olá!\n\nSeguem em anexo as ${attachments.length} fotos enviadas pelo aplicativo Câmera & Envio no dia ${new Date().toLocaleString("pt-BR")}.\n\nEnviado de forma segura pelo FotoEnvio App.`
+      : `Olá!\n\nSegue em anexo a foto tirada pelo aplicativo Câmera & Envio no dia ${new Date().toLocaleString("pt-BR")}.\n\nEnviado de forma segura pelo FotoEnvio App.`;
+
     const info = await transporter.sendMail({
       from: `"Câmera FotoEnvio" <${user}>`,
       to,
-      subject: `📸 Foto capturada pelo aplicativo - ${imageName || 'captura.png'}`,
-      text: `Olá!\n\nSegue em anexo a foto tirada pelo aplicativo Câmera & Envio no dia ${new Date().toLocaleString("pt-BR")}.\n\nEnviado de forma segura pelo FotoEnvio App.`,
-      attachments: [
-        {
-          filename: imageName || "captura.png",
-          content: content,
-          encoding: "base64",
-          contentType: contentType
-        }
-      ]
+      subject,
+      text,
+      attachments
     });
 
     res.statusCode = 200;
