@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   Camera, 
   Mail, 
@@ -19,7 +19,10 @@ import {
   X,
   MailCheck,
   Smartphone,
-  Sparkles
+  Sparkles,
+  Lock,
+  Unlock,
+  EyeOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { savePhoto, getAllPhotos, deletePhoto, CapturedPhoto } from "./db";
@@ -34,6 +37,15 @@ interface SmtpSettings {
 }
 
 export default function App() {
+  // Access control & restriction states
+  const [passcode, setPasscode] = useState(() => localStorage.getItem("app_passcode") || "1234");
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem("app_authorized") === "true");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [tempNewPasscode, setTempNewPasscode] = useState("");
+  const [passcodeUpdateSuccess, setPasscodeUpdateSuccess] = useState(false);
+
   // Navigation: "camera" | "gallery" | "settings"
   const [activeTab, setActiveTab] = useState<"camera" | "gallery" | "settings">("camera");
 
@@ -150,6 +162,10 @@ export default function App() {
 
     const requestId = ++activeCameraRequestIdRef.current;
 
+    // Small transient buffer to let hardware detach safely before binding again (extremely robust!)
+    await new Promise(resolve => setTimeout(resolve, 150));
+    if (requestId !== activeCameraRequestIdRef.current) return;
+
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       if (requestId === activeCameraRequestIdRef.current) {
         setCameraError(
@@ -194,6 +210,23 @@ export default function App() {
         break; // Found working camera stream!
       } catch (err) {
         console.warn(`Camera tier ${i + 1} failed:`, err);
+      }
+    }
+
+    // If it failed, let's wait 600ms and try one more time as a robust auto-recovery retry!
+    if (!mediaStream && requestId === activeCameraRequestIdRef.current) {
+      console.log("Transient camera lock suspected. Retrying in 600ms...");
+      await new Promise(resolve => setTimeout(resolve, 600));
+      if (requestId !== activeCameraRequestIdRef.current) return;
+
+      for (let i = 0; i < constraintTiers.length; i++) {
+        if (requestId !== activeCameraRequestIdRef.current) return;
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia(constraintTiers[i]);
+          break; // Found working camera stream on retry!
+        } catch (err) {
+          console.warn(`Retry camera tier ${i + 1} failed:`, err);
+        }
       }
     }
 
@@ -356,6 +389,10 @@ export default function App() {
       }
       
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Ensure the video stream continues running by playing it immediately (prevents mobile Safari/Chrome locks)
+      video.play().catch(e => console.warn("Auto-play resume after frame extraction prevented:", e));
+      
       const dataUrl = canvas.toDataURL("image/png");
 
       const newPhoto: CapturedPhoto = {
@@ -537,6 +574,7 @@ export default function App() {
       setTimeout(() => {
         setSendSuccess(null);
         setSelectedPhoto(null);
+        setCameraError(null); // Clear any stale transient error when going back to camera
         setActiveTab("camera");
       }, 3000);
     } catch (err: any) {
@@ -564,6 +602,118 @@ export default function App() {
       await loadPhotos();
     }
   };
+
+  const handleVerifyPasscode = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (passwordInput === passcode) {
+      setUnlocked(true);
+      sessionStorage.setItem("app_authorized", "true");
+      setLoginError("");
+    } else {
+      setLoginError("Senha de acesso incorreta! Tente novamente.");
+      setPasswordInput("");
+    }
+  };
+
+  const handleUpdatePasscode = () => {
+    if (!tempNewPasscode.trim()) {
+      alert("A senha de acesso não pode ser vazia.");
+      return;
+    }
+    localStorage.setItem("app_passcode", tempNewPasscode);
+    setPasscode(tempNewPasscode);
+    setPasscodeUpdateSuccess(true);
+    setTimeout(() => {
+      setPasscodeUpdateSuccess(false);
+    }, 3000);
+  };
+
+  if (!unlocked) {
+    return (
+      <div className="min-h-screen bg-[#080809] text-slate-200 font-sans flex flex-col items-center justify-center p-4 relative overflow-hidden antialiased selection:bg-indigo-500 selection:text-white">
+        {/* Ambient background glows */}
+        <div className="absolute top-0 right-0 w-[450px] h-[450px] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none z-0" />
+        <div className="absolute bottom-10 left-0 w-[450px] h-[450px] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none z-0" />
+
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4 }}
+          className="relative z-10 w-full max-w-md bg-[#0C0C0E] rounded-3xl border border-white/5 p-8 shadow-3xl text-center"
+        >
+          {/* Logo / Header inside card */}
+          <div className="flex flex-col items-center gap-3 mb-6">
+            <div className="bg-indigo-500/10 text-indigo-400 p-4 rounded-2xl border border-white/5 shadow-inner">
+              <Lock className="w-8 h-8 animate-pulse text-indigo-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tighter text-white">
+                SNAP<span className="text-indigo-500">SEND</span>
+              </h1>
+              <p className="text-xs text-slate-400 mt-1">Acesso Restrito ao Aplicativo</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleVerifyPasscode} className="flex flex-col gap-4">
+            <div className="text-left flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider">
+                Senha de Acesso (Passcode)
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Digite a senha..."
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  autoFocus
+                  className="w-full bg-black border border-white/5 p-4 pr-12 text-sm rounded-2xl outline-none focus:border-indigo-500 text-slate-100 font-mono tracking-widest text-center"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-all cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            {loginError && (
+              <motion.div 
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-xs text-red-400 font-mono bg-red-950/20 border border-red-900/30 p-3 rounded-xl flex items-center justify-center gap-2"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                <span>{loginError}</span>
+              </motion.div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-xs font-bold font-mono uppercase tracking-wider flex items-center justify-center gap-2 transition duration-300 shadow-md cursor-pointer mt-2"
+            >
+              <Unlock className="w-4 h-4" /> Desbloquear App
+            </button>
+          </form>
+
+          {/* Default factory code helper */}
+          <div className="mt-8 pt-5 border-t border-white/5 text-left bg-black/30 p-4 rounded-xl">
+            <span className="font-bold text-slate-400 flex items-center gap-1.5 uppercase font-[#6366f1] font-mono tracking-wider text-[9px]">
+              <Info className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              Senha de Acesso Inicial
+            </span>
+            <p className="text-slate-400 text-xs mt-1.5 font-mono">
+              A senha padrão é: <span className="text-indigo-400 font-bold bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-900/20">1234</span>
+            </p>
+            <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+              Você poderá verificar ou alterar sua senha personalizada na aba de Configurações a qualquer momento.
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#080809] text-slate-200 font-sans flex flex-col justify-between overflow-x-hidden antialiased selection:bg-indigo-500 selection:text-white relative">
@@ -747,6 +897,12 @@ export default function App() {
                         autoPlay
                         playsInline
                         muted
+                        onLoadedMetadata={(e) => {
+                          e.currentTarget.play().catch(e => console.warn("play on loaded metadata failed:", e));
+                        }}
+                        onCanPlay={(e) => {
+                          e.currentTarget.play().catch(e => console.warn("play on can play failed:", e));
+                        }}
                         className={`w-full h-full object-cover ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
                       />
                     )}
@@ -1337,6 +1493,49 @@ export default function App() {
                       4. Insira este código de 16 caracteres sem espaços no campo <b>Senha SMTP</b> localizado no formulário de preenchimento acima.
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* CONTROLE DE ACESSO / SENHA DO APLICATIVO CARD */}
+              <div className="bg-[#0C0C0E] rounded-3xl border border-white/5 p-5 shadow-2xl flex flex-col gap-5">
+                <div>
+                  <h3 className="font-bold text-white flex items-center gap-2 uppercase tracking-wider font-mono text-xs text-indigo-400">
+                    <Lock className="w-4.5 h-4.5" />
+                    Controle de Acesso / Senha do App
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Defina uma senha de acesso personalizada para este aplicativo. Qualquer pessoa que abrir o aplicativo precisará digitar esta senha para usá-lo.
+                  </p>
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-3">
+                  <div className="flex-1 flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider">Nova Senha de Acesso</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 1234, foto2026, senha123..."
+                      value={tempNewPasscode}
+                      onChange={(e) => setTempNewPasscode(e.target.value)}
+                      className="bg-black border border-white/5 p-3 rounded-xl text-sm outline-none focus:border-indigo-500 text-slate-100 font-mono"
+                    />
+                  </div>
+                  <button
+                    onClick={handleUpdatePasscode}
+                    className="md:self-end px-5 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold font-mono uppercase tracking-wider flex items-center justify-center gap-2 transition duration-300 shadow-md cursor-pointer"
+                  >
+                    Salvar Nova Senha
+                  </button>
+                </div>
+
+                {passcodeUpdateSuccess && (
+                  <div className="text-xs text-emerald-400 font-mono bg-emerald-950/20 border border-emerald-900/30 p-3 rounded-xl flex items-center gap-2 animate-fadeIn">
+                    <Check className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <span>Senha atualizada com sucesso! Nova senha de acesso: "{passcode}"</span>
+                  </div>
+                )}
+
+                <div className="text-xs bg-black/40 p-3 rounded-xl border border-white/5 text-slate-400 font-mono">
+                  Senha atual protegendo o aplicativo: <span className="text-indigo-400 font-bold bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-900/20">{passcode}</span>
                 </div>
               </div>
             </motion.div>
