@@ -658,7 +658,7 @@ export default function App() {
               ) : (
                 /* Normal Interactive Camera Viewfinder */
                 <div className="flex flex-col gap-6">
-                  <div className="relative aspect-[9/16] sm:aspect-[12/10] md:aspect-video w-full max-w-6xl mx-auto rounded-2xl md:rounded-3xl overflow-hidden bg-black shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col justify-center items-center group">
+                  <div className="relative aspect-[9/18] sm:aspect-[12/10] md:aspect-video w-full max-w-6xl mx-auto rounded-2xl md:rounded-3xl overflow-hidden bg-black shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col justify-center items-center group">
                     {/* Visual Lens Outer Mask Frame removed to maximize screen area */}
 
                     {/* Camera crosshair lines and central target circle */}
