@@ -169,7 +169,7 @@ export default function App() {
     const requestId = ++activeCameraRequestIdRef.current;
 
     // Small transient buffer to let hardware detach safely before binding again (extremely robust!)
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await new Promise(resolve => setTimeout(resolve, 300));
     if (requestId !== activeCameraRequestIdRef.current) return;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -1007,7 +1007,15 @@ export default function App() {
                       </div>
                     ) : (
                       <video
-                        ref={videoRef}
+                        ref={(el) => {
+                          videoRef.current = el;
+                          if (el && stream) {
+                            el.srcObject = stream;
+                            el.play().catch(e => {
+                              console.warn("Callback ref auto-play was prevented:", e);
+                            });
+                          }
+                        }}
                         autoPlay
                         playsInline
                         muted
